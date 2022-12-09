@@ -12,4 +12,6 @@ const (
 	NvidiaGPUStatusAnnotationKey = "huawei.com/gpu-status"
 	// NvidiaGPUScalarResourceName is the device plugin resource name used for special handling
 	NvidiaGPUScalarResourceName = "nvidia.com/gpu"
+	vcoreResourceName = "h3c.com/vcuda-core"
+	vmemoryResourceName = "h3c.com/vcuda-memory"
 )
