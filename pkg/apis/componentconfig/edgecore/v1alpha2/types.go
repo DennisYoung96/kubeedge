@@ -141,6 +141,10 @@ type TailoredKubeletFlag struct {
 	KubeletConfigFile string `json:"kubeletConfigFile,omitempty"`
 	// registerNode enables automatic registration with the apiserver.
 	RegisterNode bool `json:"registerNode,omitempty"`
+	// PodResourcesEnabled indicates enable pod resource sock
+	// default false,
+	// Note: Can not use "omitempty" option, it will affect the output of the default configuration file
+	PodResourcesEnabled bool `json:"podResourcesEnabled"`
 	// registerWithTaints are an array of taints to add to a node object when
 	// the kubelet registers itself. This only takes effect when registerNode
 	// is true and upon the initial registration of the node.

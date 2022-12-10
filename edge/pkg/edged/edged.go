@@ -59,8 +59,17 @@ import (
 	metaclient "github.com/kubeedge/kubeedge/edge/pkg/metamanager/client"
 	"github.com/kubeedge/kubeedge/pkg/apis/componentconfig/edgecore/v1alpha2"
 	"github.com/kubeedge/kubeedge/pkg/version"
+
+	"k8s.io/kubernetes/pkg/kubelet/apis/podresources"
+	utils "k8s.io/kubernetes/pkg/kubelet/util"
+	podresourcesapi "k8s.io/kubelet/pkg/apis/podresources/v1"
+	"k8s.io/kubernetes/pkg/kubelet/cm"
+	"github.com/kubeedge/kubeedge/edge/pkg/edged/podmanager"
+	"google.golang.org/grpc"
+
 )
 
+const DefaultPodResourcesDirName = "/var/lib/kubelet/pod-resources"
 // edged is the main edged implementation.
 type edged struct {
 	enable      bool
@@ -70,6 +79,9 @@ type edged struct {
 	context     context.Context
 	nodeName    string
 	namespace   string
+	podResourcesEnabled bool
+	podManager  podmanager.Manager
+	containerManager cm.ContainerManager
 }
 
 var _ core.Module = (*edged)(nil)
@@ -108,6 +120,11 @@ func (e *edged) Start() {
 			os.Exit(1)
 		}
 	}()
+
+	klog.Info("Starting server podResources")
+	if e.podResourcesEnabled {
+		go e.ListenAndServePodResources()
+	}
 	e.syncPod(e.KubeletDeps.PodConfig)
 }
 
@@ -147,6 +164,7 @@ func newEdged(enable bool, nodeName, namespace string) (*edged, error) {
 	// source of all configuration
 	kubeletDeps.PodConfig = config.NewPodConfig(config.PodConfigNotificationIncremental, kubeletDeps.Recorder)
 
+	podManager := podmanager.NewPodManager()
 	ed = &edged{
 		enable:      true,
 		context:     context.Background(),
@@ -154,6 +172,8 @@ func newEdged(enable bool, nodeName, namespace string) (*edged, error) {
 		KubeletDeps: kubeletDeps,
 		FeatureGate: utilfeature.DefaultFeatureGate,
 		nodeName:    nodeName,
+		podResourcesEnabled: edgedconfig.Config.PodResourcesEnabled,
+		podManager:  podManager,
 		namespace:   namespace,
 	}
 
@@ -411,4 +431,30 @@ func (e *edged) controllerUnpublishVolume(content []byte) (interface{}, error) {
 
 func filterPodByNodeName(pod *v1.Pod, nodeName string) bool {
 	return pod.Spec.NodeName == nodeName
+}
+
+func (e *edged) ListenAndServePodResources() {
+	socket, err := utils.LocalEndpoint(DefaultPodResourcesDirName, "kubelet")
+	if err != nil {
+		klog.V(2).InfoS("Failed to get local endpoint for PodResources endpoint", "err", err)
+		return
+	}
+	ListenAndServePodResources(socket, e.podManager, e.containerManager, e.containerManager, e.containerManager)
+}
+
+// ListenAndServePodResources initializes a gRPC server to serve the PodResources service
+func ListenAndServePodResources(socket string, podsProvider podresources.PodsProvider, devicesProvider podresources.DevicesProvider, cpusProvider podresources.CPUsProvider,  memoryProvider podresources.MemoryProvider) {
+	server := grpc.NewServer()
+	// podresourcesapiv1alpha1.RegisterPodResourcesListerServer(server, podresources.NewV1alpha1PodResourcesServer(podsProvider, devicesProvider))
+	podresourcesapi.RegisterPodResourcesListerServer(server, podresources.NewV1PodResourcesServer(podsProvider, devicesProvider, cpusProvider, memoryProvider))
+	l, err := utils.CreateListener(socket)
+	if err != nil {
+		klog.ErrorS(err, "Failed to create listener for podResources endpoint")
+		os.Exit(1)
+	}
+
+	if err := server.Serve(l); err != nil {
+		klog.ErrorS(err, "Failed to serve")
+		os.Exit(1)
+	}
 }
