@@ -81,7 +81,6 @@ type edged struct {
 	namespace   string
 	podResourcesEnabled bool
 	podManager  podmanager.Manager
-	containerManager cm.ContainerManager
 }
 
 var _ core.Module = (*edged)(nil)
@@ -439,7 +438,7 @@ func (e *edged) ListenAndServePodResources() {
 		klog.V(2).InfoS("Failed to get local endpoint for PodResources endpoint", "err", err)
 		return
 	}
-	ListenAndServePodResources(socket, e.podManager, e.containerManager, e.containerManager, e.containerManager)
+	ListenAndServePodResources(socket, e.podManager, e.KubeletDeps.ContainerManager, e.KubeletDeps.ContainerManager, e.KubeletDeps.ContainerManager)
 }
 
 // ListenAndServePodResources initializes a gRPC server to serve the PodResources service
