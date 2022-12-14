@@ -700,7 +700,7 @@ func (m *ManagerImpl) getCheckpointVCUDA() (checkpoint.DeviceManagerCheckpoint, 
 	registeredDevs := make(map[string][]string)
 	// devEntries := make([]checkpoint.PodDevicesEntryV1, 0)
 	cp := checkpoint.NewV1(v2DeivcesEntryies, registeredDevs)
-	err := m.checkpointManager.GetCheckpoint(kubeletDeviceManagerCheckpoint, cp)
+	err = m.checkpointManager.GetCheckpoint(kubeletDeviceManagerCheckpoint, cp)
 	return cp, err
 }
 
