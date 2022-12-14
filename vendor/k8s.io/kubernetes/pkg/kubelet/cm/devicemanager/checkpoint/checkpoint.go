@@ -50,6 +50,10 @@ type checkpointData struct {
 	RegisteredDevices map[string][]string
 }
 
+type CheckpointDataNUMA struct {
+	Data  *checkpointData 
+}
+
 // Data holds checkpoint data and its checksum
 type Data struct {
 	Data     checkpointData

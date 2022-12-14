@@ -26,6 +26,7 @@ import (
 	"sort"
 	"sync"
 	"time"
+	"io/ioutil"
 
 	cadvisorapi "github.com/google/cadvisor/info/v1"
 	"google.golang.org/grpc"
@@ -617,9 +618,21 @@ func (m *ManagerImpl) readCheckpoint() error {
 			klog.InfoS("Failed to read checkpoint V1 file", "err", errv1)
 			// intentionally return the parent error. We expect to restore V1 checkpoints
 			// a tiny fraction of time, so what matters most is the current checkpoint read error.
-			return err
+			// return err
+		}else{
+			klog.InfoS("Read data from a V1 checkpoint", "checkpoint", kubeletDeviceManagerCheckpoint)
 		}
-		klog.InfoS("Read data from a V1 checkpoint", "checkpoint", kubeletDeviceManagerCheckpoint)
+		var errv2 error
+		// one last try: maybe it's a old format checkpoint?
+		cp, errv2 = m.getCheckpointVCUDA()
+		if errv2 != nil {
+			klog.InfoS("Failed to read my checkpoint VCUDA file", "err", errv2)
+			// intentionally return the parent error. We expect to restore V1 checkpoints
+			// a tiny fraction of time, so what matters most is the current checkpoint read error.
+			return err
+		}else{
+			klog.InfoS("Read data from my VCUDA checkpoint", "checkpoint", kubeletDeviceManagerCheckpoint)
+		}
 	}
 
 	m.mutex.Lock()
@@ -649,6 +662,38 @@ func (m *ManagerImpl) getCheckpointV1() (checkpoint.DeviceManagerCheckpoint, err
 	registeredDevs := make(map[string][]string)
 	devEntries := make([]checkpoint.PodDevicesEntryV1, 0)
 	cp := checkpoint.NewV1(devEntries, registeredDevs)
+	err := m.checkpointManager.GetCheckpoint(kubeletDeviceManagerCheckpoint, cp)
+	return cp, err
+}
+
+func (m *ManagerImpl) getCheckpointVCUDA() (checkpoint.DeviceManagerCheckpoint, error) {
+	cpFile := filepath.Join("/var/lib/kubelet/device-plugins", kubeletDeviceManagerCheckpoint)
+	data, err := ioutil.ReadFile(cpFile)
+	if err != nil {
+		return nil, err
+	}
+	klog.V(4).Infof("Try my vcuda checkpoint data format")
+	cpNUMAData := &checkpoint.CheckpointDataNUMA{}
+	v2DeivcesEntryies := make([]checkpoint.PodDevicesEntryV1, len(cpNUMAData.Data.PodDeviceEntries))
+	for i, v := range cpNUMAData.Data.PodDeviceEntries {
+		v2PodDevicesEntry := checkpoint.PodDevicesEntryV1{
+			PodUID:        v.PodUID,
+			ContainerName: v.ContainerName,
+			ResourceName:  v.ResourceName,
+			DeviceIDs:     make([]string, 0),
+			AllocResp:     v.AllocResp,
+		}
+		for _, devices := range v.DeviceIDs {
+			v2PodDevicesEntry.DeviceIDs = append(v2PodDevicesEntry.DeviceIDs, devices...)
+		}
+		v2DeivcesEntryies[i] = v2PodDevicesEntry
+	}
+	// cpV1Data := &types.Checkpoint{}
+	// cpV1Data.RegisteredDevices = cpNUMAData.Data.RegisteredDevices
+	// cpV1Data.PodDeviceEntries = v2DeivcesEntryies
+	registeredDevs := make(map[string][]string)
+	// devEntries := make([]checkpoint.PodDevicesEntryV1, 0)
+	cp := checkpoint.NewV1(v2DeivcesEntryies, registeredDevs)
 	err := m.checkpointManager.GetCheckpoint(kubeletDeviceManagerCheckpoint, cp)
 	return cp, err
 }
