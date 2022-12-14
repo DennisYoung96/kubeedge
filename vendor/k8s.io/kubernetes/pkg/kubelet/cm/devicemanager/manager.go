@@ -674,6 +674,11 @@ func (m *ManagerImpl) getCheckpointVCUDA() (checkpoint.DeviceManagerCheckpoint, 
 	}
 	klog.V(4).Infof("Try my vcuda checkpoint data format")
 	cpNUMAData := &checkpoint.CheckpointDataNUMA{}
+	err = json.Unmarshal(data, cpNUMAData)
+	if err != nil {
+		klog.V(4).Infof("Failed NUMA checkpoint data format")
+		return nil, err
+	}
 	v2DeivcesEntryies := make([]checkpoint.PodDevicesEntryV1, len(cpNUMAData.Data.PodDeviceEntries))
 	for i, v := range cpNUMAData.Data.PodDeviceEntries {
 		v2PodDevicesEntry := checkpoint.PodDevicesEntryV1{
