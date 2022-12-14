@@ -740,6 +740,7 @@ func (m *ManagerImpl) devicesToAllocate(podUID, contName, resource string, requi
 	devicesInUse := m.allocatedDevices[resource]
 	// Gets Available devices.
 	available := m.healthyDevices[resource].Difference(devicesInUse)
+	klog.V(3).InfoS("YYCHECK", "devicesInUse", devicesInUse.List(), "devicesInUse", devicesInUse.Len(), "m.healthyDevices[resource]", m.healthyDevices[resource].List())
 	if available.Len() < needed {
 		return nil, fmt.Errorf("requested number of devices unavailable for %s. Requested: %d, Available: %d", resource, needed, available.Len())
 	}
@@ -904,6 +905,7 @@ func (m *ManagerImpl) allocateContainerResources(pod *v1.Pod, container *v1.Cont
 	contName := container.Name
 	allocatedDevicesUpdated := false
 	needsUpdateCheckpoint := false
+	klog.V(3).InfoS("YYCHECK", "podUID: ", podUID, "contName: ", contName, "devicesToReuse: ", devicesToReuse)
 	// Extended resources are not allowed to be overcommitted.
 	// Since device plugin advertises extended resources,
 	// therefore Requests must be equal to Limits and iterating
@@ -911,21 +913,27 @@ func (m *ManagerImpl) allocateContainerResources(pod *v1.Pod, container *v1.Cont
 	for k, v := range container.Resources.Limits {
 		resource := string(k)
 		needed := int(v.Value())
-		klog.V(3).InfoS("Looking for needed resources", "needed", needed, "resourceName", resource)
+		klog.V(3).InfoS("YYCHECK Looking for needed resources", "needed", needed, "resourceName", resource)
 		if !m.isDevicePluginResource(resource) {
+			klog.V(3).InfoS("YYCHECK", "isDevicePluginResource")
 			continue
 		}
 		// Updates allocatedDevices to garbage collect any stranded resources
 		// before doing the device plugin allocation.
 		if !allocatedDevicesUpdated {
+			klog.V(3).InfoS("YYCHECK", "allocatedDevicesUpdated")
 			m.UpdateAllocatedDevices()
 			allocatedDevicesUpdated = true
 		}
+		klog.V(3).InfoS("YYCHECK", "devicesToAllocate will start")
 		allocDevices, err := m.devicesToAllocate(podUID, contName, resource, needed, devicesToReuse[resource])
 		if err != nil {
+			klog.V(3).InfoS("YYCHECK", "devicesToAllocate err: ", err)
 			return err
 		}
 		if allocDevices == nil || len(allocDevices) <= 0 {
+			klog.V(3).InfoS("YYCHECK", "allocDevices == nil || len(allocDevices) <= 0")
+			return err
 			continue
 		}
 
@@ -951,18 +959,19 @@ func (m *ManagerImpl) allocateContainerResources(pod *v1.Pod, container *v1.Cont
 			m.mutex.Lock()
 			m.allocatedDevices = m.podDevices.devices()
 			m.mutex.Unlock()
-			return fmt.Errorf("unknown Device Plugin %s", resource)
+			return fmt.Errorf("YYCHECK unknown Device Plugin %s", resource)
 		}
-
+		klog.V(3).InfoS("YYCHECK", "known evice Plugin ", resource)
 		devs := allocDevices.UnsortedList()
 		// TODO: refactor this part of code to just append a ContainerAllocationRequest
 		// in a passed in AllocateRequest pointer, and issues a single Allocate call per pod.
-		klog.V(3).InfoS("Making allocation request for device plugin", "devices", devs, "resourceName", resource)
+		klog.V(3).InfoS("YYCHECK Making allocation request for device plugin", "devices", devs, "resourceName", resource)
 		resp, err := eI.e.allocate(devs)
 		metrics.DevicePluginAllocationDuration.WithLabelValues(resource).Observe(metrics.SinceInSeconds(startRPCTime))
 		if err != nil {
 			// In case of allocation failure, we want to restore m.allocatedDevices
 			// to the actual allocated state from m.podDevices.
+			klog.V(3).InfoS("YYCHECK", "wrong in DevicePluginAllocationDuration", resource)
 			m.mutex.Lock()
 			m.allocatedDevices = m.podDevices.devices()
 			m.mutex.Unlock()
@@ -970,13 +979,14 @@ func (m *ManagerImpl) allocateContainerResources(pod *v1.Pod, container *v1.Cont
 		}
 
 		if len(resp.ContainerResponses) == 0 {
-			return fmt.Errorf("no containers return in allocation response %v", resp)
+			return fmt.Errorf("YYCHECK no containers return in allocation response %v", resp)
 		}
 
 		allocDevicesWithNUMA := checkpoint.NewDevicesPerNUMA()
 		// Update internal cached podDevices state.
 		m.mutex.Lock()
 		for dev := range allocDevices {
+			klog.V(3).InfoS("YYCHECK", "allocDevices of dev: ", dev)
 			if m.allDevices[resource][dev].Topology == nil || len(m.allDevices[resource][dev].Topology.Nodes) == 0 {
 				allocDevicesWithNUMA[0] = append(allocDevicesWithNUMA[0], dev)
 				continue
@@ -987,13 +997,15 @@ func (m *ManagerImpl) allocateContainerResources(pod *v1.Pod, container *v1.Cont
 			}
 		}
 		m.mutex.Unlock()
+		klog.V(3).InfoS("YYCHECK", "now insert")
 		m.podDevices.insert(podUID, contName, resource, allocDevicesWithNUMA, resp.ContainerResponses[0])
 	}
 
 	if needsUpdateCheckpoint {
+		klog.V(3).InfoS("YYCHECK", "writeCheckpoint")
 		return m.writeCheckpoint()
 	}
-
+	klog.V(3).InfoS("YYCHECK", "no writeCheckpoint and end now")
 	return nil
 }
 
