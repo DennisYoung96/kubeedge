@@ -27,6 +27,7 @@ import (
 	"sync"
 	"time"
 	"io/ioutil"
+	"encoding/json"
 
 	cadvisorapi "github.com/google/cadvisor/info/v1"
 	"google.golang.org/grpc"
