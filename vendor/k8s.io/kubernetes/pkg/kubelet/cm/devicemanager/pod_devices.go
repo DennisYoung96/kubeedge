@@ -187,14 +187,15 @@ func (pdev *podDevices) toCheckpointData() []checkpoint.PodDevicesEntry {
 	for podUID, containerDevices := range pdev.devs {
 		for conName, resources := range containerDevices {
 			for resource, devices := range resources {
+				klog.ErrorS(nil, "YYCHECK toCheckpointData", "podUID", podUID, "containerName", conName, "resourceName", resource)
 				if devices.allocResp == nil {
-					klog.ErrorS(nil, "Can't marshal allocResp, allocation response is missing", "podUID", podUID, "containerName", conName, "resourceName", resource)
+					klog.ErrorS(nil, "YYCHECK Can't marshal allocResp, allocation response is missing", "podUID", podUID, "containerName", conName, "resourceName", resource)
 					continue
 				}
 
 				allocResp, err := devices.allocResp.Marshal()
 				if err != nil {
-					klog.ErrorS(err, "Can't marshal allocResp", "podUID", podUID, "containerName", conName, "resourceName", resource)
+					klog.ErrorS(err, "YYCHECK Can't marshal allocResp", "podUID", podUID, "containerName", conName, "resourceName", resource)
 					continue
 				}
 				data = append(data, checkpoint.PodDevicesEntry{

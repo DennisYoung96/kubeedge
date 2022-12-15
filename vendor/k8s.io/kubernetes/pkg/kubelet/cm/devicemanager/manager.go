@@ -185,6 +185,7 @@ func (m *ManagerImpl) genericDeviceUpdateCallback(resourceName string, devices [
 	m.unhealthyDevices[resourceName] = sets.NewString()
 	m.allDevices[resourceName] = make(map[string]pluginapi.Device)
 	for _, dev := range devices {
+		klog.V(3).InfoS("YYCHECK", "devicesID", dev.ID, "devicesHealth", dev.Health)
 		m.allDevices[resourceName][dev.ID] = dev
 		if dev.Health == pluginapi.Healthy {
 			m.healthyDevices[resourceName].Insert(dev.ID)
@@ -192,6 +193,7 @@ func (m *ManagerImpl) genericDeviceUpdateCallback(resourceName string, devices [
 			m.unhealthyDevices[resourceName].Insert(dev.ID)
 		}
 	}
+	klog.V(3).InfoS("YYCHECK", "m.healthyDevices[resource]", m.healthyDevices[resourceName].List(), "m.unhealthyDevices[resource]", m.unhealthyDevices[resourceName].List())
 	m.mutex.Unlock()
 	if err := m.writeCheckpoint(); err != nil {
 		klog.ErrorS(err, "Writing checkpoint encountered")
@@ -584,6 +586,7 @@ func (m *ManagerImpl) writeCheckpoint() error {
 	registeredDevs := make(map[string][]string)
 	for resource, devices := range m.healthyDevices {
 		registeredDevs[resource] = devices.UnsortedList()
+		klog.InfoS("YYCHECK writeCheckpoint", "healthyDevices", devices.List())
 	}
 	data := checkpoint.New(m.podDevices.toCheckpointData(),
 		registeredDevs)
