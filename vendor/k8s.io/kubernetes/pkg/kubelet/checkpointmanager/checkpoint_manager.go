@@ -84,10 +84,10 @@ func (manager *impl) GetCheckpoint(checkpointKey string, checkpoint Checkpoint) 
 		}
 		return err
 	}
-	err = checkpoint.UnmarshalCheckpoint(blob)
-	if err == nil {
-		err = checkpoint.VerifyChecksum()
-	}
+	err = checkpoint.UnmarshalCheckpoint(blob)	
+// 	if err == nil {
+// 		err = checkpoint.VerifyChecksum()
+// 	}
 	return err
 }
 
