@@ -130,6 +130,7 @@ func (s *sourcesReadyStub) AllReady() bool          { return true }
 
 // NewManagerImpl creates a new manager.
 func NewManagerImpl(topology []cadvisorapi.Node, topologyAffinityStore topologymanager.Store) (*ManagerImpl, error) {
+	klog.InfoS("YYCHECK NewManagerImpl")
 	socketPath := pluginapi.KubeletSocket
 	if runtime.GOOS == "windows" {
 		socketPath = os.Getenv("SYSTEMDRIVE") + pluginapi.KubeletSocketWindows
@@ -175,7 +176,7 @@ func newManagerImpl(socketPath string, topology []cadvisorapi.Node, topologyAffi
 		return nil, fmt.Errorf("failed to initialize checkpoint manager: %v", err)
 	}
 	manager.checkpointManager = checkpointManager
-
+	klog.V(2).InfoS("YYCHECK the end of Creating Device Plugin manager", "newManagerImpl done")
 	return manager, nil
 }
 
@@ -201,6 +202,7 @@ func (m *ManagerImpl) genericDeviceUpdateCallback(resourceName string, devices [
 }
 
 func (m *ManagerImpl) removeContents(dir string) error {
+	klog.V(2).InfoS("YYCHECK", "removeContents ", dir)
 	d, err := os.Open(dir)
 	if err != nil {
 		return err
@@ -246,7 +248,7 @@ func (m *ManagerImpl) checkpointFile() string {
 // podDevices and allocatedDevices information from checkpointed state and
 // starts device plugin registration service.
 func (m *ManagerImpl) Start(activePods ActivePodsFunc, sourcesReady config.SourcesReady) error {
-	klog.V(2).InfoS("Starting Device Plugin manager")
+	klog.V(2).InfoS("YYCHECK Starting Device Plugin manager")
 
 	m.activePods = activePods
 	m.sourcesReady = sourcesReady
@@ -254,7 +256,7 @@ func (m *ManagerImpl) Start(activePods ActivePodsFunc, sourcesReady config.Sourc
 	// Loads in allocatedDevices information from disk.
 	err := m.readCheckpoint()
 	if err != nil {
-		klog.InfoS("Continue after failing to read checkpoint file. Device allocation info may NOT be up-to-date", "err", err)
+		klog.InfoS("YYCHECK Continue after failing to read checkpoint file. Device allocation info may NOT be up-to-date", "err", err)
 	}
 
 	socketPath := filepath.Join(m.socketdir, m.socketname)
@@ -270,12 +272,12 @@ func (m *ManagerImpl) Start(activePods ActivePodsFunc, sourcesReady config.Sourc
 	// Removes all stale sockets in m.socketdir. Device plugins can monitor
 	// this and use it as a signal to re-register with the new Kubelet.
 	if err := m.removeContents(m.socketdir); err != nil {
-		klog.ErrorS(err, "Fail to clean up stale content under socket dir", "path", m.socketdir)
+		klog.ErrorS(err, "YYCHECK Fail to clean up stale content under socket dir", "path", m.socketdir)
 	}
 
 	s, err := net.Listen("unix", socketPath)
 	if err != nil {
-		klog.ErrorS(err, "Failed to listen to socket while starting device plugin registry")
+		klog.ErrorS(err, "YYCHECK Failed to listen to socket while starting device plugin registry")
 		return err
 	}
 
@@ -288,7 +290,7 @@ func (m *ManagerImpl) Start(activePods ActivePodsFunc, sourcesReady config.Sourc
 		m.server.Serve(s)
 	}()
 
-	klog.V(2).InfoS("Serving device plugin registration server on socket", "path", socketPath)
+	klog.V(2).InfoS("YYCHECK Serving device plugin registration server on socket", "path", socketPath)
 
 	return nil
 }
@@ -296,10 +298,10 @@ func (m *ManagerImpl) Start(activePods ActivePodsFunc, sourcesReady config.Sourc
 // GetWatcherHandler returns the plugin handler
 func (m *ManagerImpl) GetWatcherHandler() cache.PluginHandler {
 	if f, err := os.Create(m.socketdir + "DEPRECATION"); err != nil {
-		klog.ErrorS(err, "Failed to create deprecation file at socket dir", "path", m.socketdir)
+		klog.ErrorS(err, "YYCHECK Failed to create deprecation file at socket dir", "path", m.socketdir)
 	} else {
 		f.Close()
-		klog.V(4).InfoS("Created deprecation file", "path", f.Name())
+		klog.V(4).InfoS("YYCHECK Created deprecation file", "path", f.Name())
 	}
 
 	return cache.PluginHandler(m)
@@ -307,10 +309,10 @@ func (m *ManagerImpl) GetWatcherHandler() cache.PluginHandler {
 
 // ValidatePlugin validates a plugin if the version is correct and the name has the format of an extended resource
 func (m *ManagerImpl) ValidatePlugin(pluginName string, endpoint string, versions []string) error {
-	klog.V(2).InfoS("Got Plugin at endpoint with versions", "plugin", pluginName, "endpoint", endpoint, "versions", versions)
+	klog.V(2).InfoS("YYCHECK Got Plugin at endpoint with versions", "plugin", pluginName, "endpoint", endpoint, "versions", versions)
 
 	if !m.isVersionCompatibleWithPlugin(versions) {
-		return fmt.Errorf("manager version, %s, is not among plugin supported versions %v", pluginapi.Version, versions)
+		return fmt.Errorf("YYCHECK manager version, %s, is not among plugin supported versions %v", pluginapi.Version, versions)
 	}
 
 	if !v1helper.IsExtendedResourceName(v1.ResourceName(pluginName)) {
@@ -324,11 +326,11 @@ func (m *ManagerImpl) ValidatePlugin(pluginName string, endpoint string, version
 // TODO: Start the endpoint and wait for the First ListAndWatch call
 //       before registering the plugin
 func (m *ManagerImpl) RegisterPlugin(pluginName string, endpoint string, versions []string) error {
-	klog.V(2).InfoS("Registering plugin at endpoint", "plugin", pluginName, "endpoint", endpoint)
+	klog.V(2).InfoS("YYCHECK Registering plugin at endpoint", "plugin", pluginName, "endpoint", endpoint)
 
 	e, err := newEndpointImpl(endpoint, pluginName, m.callback)
 	if err != nil {
-		return fmt.Errorf("failed to dial device plugin with socketPath %s: %v", endpoint, err)
+		return fmt.Errorf("YYCHECK failed to dial device plugin with socketPath %s: %v", endpoint, err)
 	}
 
 	options, err := e.client.GetDevicePluginOptions(context.Background(), &pluginapi.Empty{})
@@ -362,6 +364,7 @@ func (m *ManagerImpl) isVersionCompatibleWithPlugin(versions []string) bool {
 	// E.g., say kubelet supports v1beta1 and v1beta2, and we get v1alpha1 and v1beta1 from a device plugin,
 	// this function should return v1beta1
 	for _, version := range versions {
+		klog.V(2).InfoS("YYCHECK isVersionCompatibleWithPlugin", "version", version)
 		for _, supportedVersion := range pluginapi.SupportedVersions {
 			if version == supportedVersion {
 				return true
@@ -376,6 +379,7 @@ func (m *ManagerImpl) isVersionCompatibleWithPlugin(versions []string) bool {
 func (m *ManagerImpl) Allocate(pod *v1.Pod, container *v1.Container) error {
 	// The pod is during the admission phase. We need to save the pod to avoid it
 	// being cleaned before the admission ended
+	klog.V(2).InfoS("YYCHECK now Allocate")
 	m.setPodPendingAdmission(pod)
 
 	if _, ok := m.devicesToReuse[string(pod.UID)]; !ok {
@@ -393,13 +397,16 @@ func (m *ManagerImpl) Allocate(pod *v1.Pod, container *v1.Container) error {
 	for _, initContainer := range pod.Spec.InitContainers {
 		if container.Name == initContainer.Name {
 			if err := m.allocateContainerResources(pod, container, m.devicesToReuse[string(pod.UID)]); err != nil {
+				klog.V(2).InfoS("YYCHECK", "InitContainers allocateContainerResources failed", err)
 				return err
 			}
 			m.podDevices.addContainerAllocatedResources(string(pod.UID), container.Name, m.devicesToReuse[string(pod.UID)])
+			klog.V(2).InfoS("YYCHECK", "initContainer return nil")
 			return nil
 		}
 	}
 	if err := m.allocateContainerResources(pod, container, m.devicesToReuse[string(pod.UID)]); err != nil {
+		klog.V(2).InfoS("YYCHECK", "allocateContainerResources failed", err)
 		return err
 	}
 	m.podDevices.removeContainerAllocatedResources(string(pod.UID), container.Name, m.devicesToReuse[string(pod.UID)])
@@ -447,6 +454,7 @@ func (m *ManagerImpl) Register(ctx context.Context, r *pluginapi.RegisterRequest
 	// add some policies here, e.g., verify whether an old device plugin with the
 	// same resource name is still alive to determine whether we want to accept
 	// the new registration.
+	klog.V(2).InfoS("YYCHECK now addEndpoint")
 	go m.addEndpoint(r)
 
 	return &pluginapi.Empty{}, nil
@@ -476,10 +484,11 @@ func (m *ManagerImpl) registerEndpoint(resourceName string, options *pluginapi.D
 	defer m.mutex.Unlock()
 
 	m.endpoints[resourceName] = endpointInfo{e: e, opts: options}
-	klog.V(2).InfoS("Registered endpoint", "endpoint", e)
+	klog.V(2).InfoS("YYCHECK Registered endpoint", "endpoint", e)
 }
 
 func (m *ManagerImpl) runEndpoint(resourceName string, e endpoint) {
+	klog.V(2).InfoS("YYCHECK now runEndpoint", "endpoint", e)
 	e.run()
 	e.stop()
 
@@ -487,6 +496,7 @@ func (m *ManagerImpl) runEndpoint(resourceName string, e endpoint) {
 	defer m.mutex.Unlock()
 
 	if old, ok := m.endpoints[resourceName]; ok && old.e == e {
+		klog.V(2).InfoS("YYCHECK now markResourceUnhealthy", "resourceName", resourceName)
 		m.markResourceUnhealthy(resourceName)
 	}
 
@@ -506,7 +516,7 @@ func (m *ManagerImpl) addEndpoint(r *pluginapi.RegisterRequest) {
 }
 
 func (m *ManagerImpl) markResourceUnhealthy(resourceName string) {
-	klog.V(2).InfoS("Mark all resources Unhealthy for resource", "resourceName", resourceName)
+	klog.V(2).InfoS("YYCHECK Mark all resources Unhealthy for resource", "resourceName", resourceName)
 	healthyDevices := sets.NewString()
 	if _, ok := m.healthyDevices[resourceName]; ok {
 		healthyDevices = m.healthyDevices[resourceName]
@@ -531,6 +541,7 @@ func (m *ManagerImpl) markResourceUnhealthy(resourceName string) {
 // capacity for already allocated pods so that they can continue to run. However, new pods
 // requiring device plugin resources will not be scheduled till device plugin re-registers.
 func (m *ManagerImpl) GetCapacity() (v1.ResourceList, v1.ResourceList, []string) {
+	klog.InfoS("YYCHECK GetCapacity" bv)
 	needsUpdateCheckpoint := false
 	var capacity = v1.ResourceList{}
 	var allocatable = v1.ResourceList{}
@@ -577,6 +588,7 @@ func (m *ManagerImpl) GetCapacity() (v1.ResourceList, v1.ResourceList, []string)
 			klog.ErrorS(err, "Error on writing checkpoint")
 		}
 	}
+	klog.InfoS("YYCHECK", "capacity", capacity, "allocatable", allocatable, "deletedResources", deletedResources.List())
 	return capacity, allocatable, deletedResources.UnsortedList()
 }
 
@@ -594,7 +606,7 @@ func (m *ManagerImpl) writeCheckpoint() error {
 	err := m.checkpointManager.CreateCheckpoint(kubeletDeviceManagerCheckpoint, data)
 	if err != nil {
 		err2 := fmt.Errorf("failed to write checkpoint file %q: %v", kubeletDeviceManagerCheckpoint, err)
-		klog.InfoS("Failed to write checkpoint file", "err", err)
+		klog.InfoS("YYCHECK Failed to write checkpoint file", "err", err)
 		return err2
 	}
 	return nil
