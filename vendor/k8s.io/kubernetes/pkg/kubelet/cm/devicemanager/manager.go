@@ -541,7 +541,7 @@ func (m *ManagerImpl) markResourceUnhealthy(resourceName string) {
 // capacity for already allocated pods so that they can continue to run. However, new pods
 // requiring device plugin resources will not be scheduled till device plugin re-registers.
 func (m *ManagerImpl) GetCapacity() (v1.ResourceList, v1.ResourceList, []string) {
-	klog.InfoS("YYCHECK GetCapacity" bv)
+	klog.InfoS("YYCHECK GetCapacity")
 	needsUpdateCheckpoint := false
 	var capacity = v1.ResourceList{}
 	var allocatable = v1.ResourceList{}
@@ -983,6 +983,20 @@ func (m *ManagerImpl) allocateContainerResources(pod *v1.Pod, container *v1.Cont
 		if !m.isDevicePluginResource(resource) {
 			klog.V(3).InfoS("YYCHECK", "isDevicePluginResource")
 			continue
+		}
+		if resource == "h3c.com/vcuda-core" || resource == "h3c.com/vcuda-memory"{
+			count := 0
+			notGotCUDA := true
+			for count < 120 && notGotCUDA{
+				klog.V(3).InfoS("YYCHECK my update", "no.", count, "resource", resource)
+				m.UpdateAllocatedDevices()
+				if m.healthyDevices[resource].Len()>0{
+					notGotCUDA = false
+				}else{
+					time.Sleep(5 * time.Second)
+					count = count + 1
+				}
+			}
 		}
 		// Updates allocatedDevices to garbage collect any stranded resources
 		// before doing the device plugin allocation.
