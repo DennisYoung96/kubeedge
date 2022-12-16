@@ -1107,7 +1107,8 @@ func (m *ManagerImpl) GetDeviceRunContainerOptions(pod *v1.Pod, container *v1.Co
 		}
 		err := m.callPreStartContainerIfNeeded(podUID, contName, resource)
 		if err != nil {
-			return nil, err
+			klog.ErrorS(err, "err in YYCHECK callPreStartContainerIfNeeded")
+// 			return nil, err
 		}
 		// This is a device plugin resource yet we don't have cached
 		// resource state. This is likely due to a race during node
