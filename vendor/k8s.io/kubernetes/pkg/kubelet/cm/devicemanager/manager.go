@@ -28,6 +28,7 @@ import (
 	"time"
 	"io/ioutil"
 	"encoding/json"
+	"strings"
 
 	cadvisorapi "github.com/google/cadvisor/info/v1"
 	"google.golang.org/grpc"
