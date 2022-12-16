@@ -1099,6 +1099,7 @@ func (m *ManagerImpl) GetDeviceRunContainerOptions(pod *v1.Pod, container *v1.Co
 	podUID := string(pod.UID)
 	contName := container.Name
 	needsReAllocate := false
+	klog.V(3).InfoS("YYCHECK GetDeviceRunContainerOptions", "podUID", podUID)
 	for k, v := range container.Resources.Limits {
 		resource := string(k)
 		if !m.isDevicePluginResource(resource) || v.Value() == 0 {
@@ -1116,7 +1117,7 @@ func (m *ManagerImpl) GetDeviceRunContainerOptions(pod *v1.Pod, container *v1.Co
 		}
 	}
 	if needsReAllocate {
-		klog.V(2).InfoS("Needs to re-allocate device plugin resources for pod", "pod", klog.KObj(pod), "containerName", container.Name)
+		klog.V(2).InfoS("YYCHECK Needs to re-allocate device plugin resources for pod", "pod", klog.KObj(pod), "containerName", container.Name)
 		if err := m.Allocate(pod, container); err != nil {
 			return nil, err
 		}
@@ -1127,31 +1128,32 @@ func (m *ManagerImpl) GetDeviceRunContainerOptions(pod *v1.Pod, container *v1.Co
 // callPreStartContainerIfNeeded issues PreStartContainer grpc call for device plugin resource
 // with PreStartRequired option set.
 func (m *ManagerImpl) callPreStartContainerIfNeeded(podUID, contName, resource string) error {
+	klog.V(3).InfoS("YYCHECK callPreStartContainerIfNeeded", "resource", resource, "contName", contName)
 	m.mutex.Lock()
 	eI, ok := m.endpoints[resource]
 	if !ok {
 		m.mutex.Unlock()
-		return fmt.Errorf("endpoint not found in cache for a registered resource: %s", resource)
+		return fmt.Errorf("YYCHECK endpoint not found in cache for a registered resource: %s", resource)
 	}
 
 	if eI.opts == nil || !eI.opts.PreStartRequired {
 		m.mutex.Unlock()
-		klog.V(4).InfoS("Plugin options indicate to skip PreStartContainer for resource", "resourceName", resource)
+		klog.V(4).InfoS("YYCHECK Plugin options indicate to skip PreStartContainer for resource", "resourceName", resource)
 		return nil
 	}
 
 	devices := m.podDevices.containerDevices(podUID, contName, resource)
 	if devices == nil {
 		m.mutex.Unlock()
-		return fmt.Errorf("no devices found allocated in local cache for pod %s, container %s, resource %s", string(podUID), contName, resource)
+		return fmt.Errorf("YYCHECK no devices found allocated in local cache for pod %s, container %s, resource %s", string(podUID), contName, resource)
 	}
 
 	m.mutex.Unlock()
 	devs := devices.UnsortedList()
-	klog.V(4).InfoS("Issuing a PreStartContainer call for container", "containerName", contName, "podUID", string(podUID))
+	klog.V(4).InfoS("YYCHECK Issuing a PreStartContainer call for container", "containerName", contName, "podUID", string(podUID))
 	_, err := eI.e.preStartContainer(devs)
 	if err != nil {
-		return fmt.Errorf("device plugin PreStartContainer rpc failed with err: %v", err)
+		return fmt.Errorf("YYCHECK device plugin PreStartContainer rpc failed with err: %v", err)
 	}
 	// TODO: Add metrics support for init RPC
 	return nil
@@ -1162,20 +1164,20 @@ func (m *ManagerImpl) callPreStartContainerIfNeeded(podUID, contName, resource s
 func (m *ManagerImpl) callGetPreferredAllocationIfAvailable(podUID, contName, resource string, available, mustInclude sets.String, size int) (sets.String, error) {
 	eI, ok := m.endpoints[resource]
 	if !ok {
-		return nil, fmt.Errorf("endpoint not found in cache for a registered resource: %s", resource)
+		return nil, fmt.Errorf("YYCHECK endpoint not found in cache for a registered resource: %s", resource)
 	}
 
 	if eI.opts == nil || !eI.opts.GetPreferredAllocationAvailable {
-		klog.V(4).InfoS("Plugin options indicate to skip GetPreferredAllocation for resource", "resourceName", resource)
+		klog.V(4).InfoS("YYCHECK Plugin options indicate to skip GetPreferredAllocation for resource", "resourceName", resource)
 		return nil, nil
 	}
 
 	m.mutex.Unlock()
-	klog.V(4).InfoS("Issuing a GetPreferredAllocation call for container", "containerName", contName, "podUID", string(podUID))
+	klog.V(4).InfoS("YYCHECK Issuing a GetPreferredAllocation call for container", "containerName", contName, "podUID", string(podUID))
 	resp, err := eI.e.getPreferredAllocation(available.UnsortedList(), mustInclude.UnsortedList(), size)
 	m.mutex.Lock()
 	if err != nil {
-		return nil, fmt.Errorf("device plugin GetPreferredAllocation rpc failed with err: %v", err)
+		return nil, fmt.Errorf("YYCHECK device plugin GetPreferredAllocation rpc failed with err: %v", err)
 	}
 	if resp != nil && len(resp.ContainerResponses) > 0 {
 		return sets.NewString(resp.ContainerResponses[0].DeviceIDs...), nil
