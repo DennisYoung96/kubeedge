@@ -984,7 +984,7 @@ func (m *ManagerImpl) allocateContainerResources(pod *v1.Pod, container *v1.Cont
 			klog.V(3).InfoS("YYCHECK", "isDevicePluginResource")
 			continue
 		}
-		if resource == "h3c.com/vcuda-core" || resource == "h3c.com/vcuda-memory"{
+		if strings.EqualFold(resource, "h3c.com/vcuda-core") || strings.EqualFold(resource, "h3c.com/vcuda-memory"){
 			count := 0
 			notGotCUDA := true
 			for count < 120 && notGotCUDA{
@@ -997,6 +997,8 @@ func (m *ManagerImpl) allocateContainerResources(pod *v1.Pod, container *v1.Cont
 					count = count + 1
 				}
 			}
+		}else{
+			klog.V(3).InfoS("YYCHECK mywait method not works!", "resource", resource)
 		}
 		// Updates allocatedDevices to garbage collect any stranded resources
 		// before doing the device plugin allocation.
